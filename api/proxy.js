@@ -1,22 +1,25 @@
-// api/proxy.js - TEMPORARY: hardcoded API key for testing
 export default async function handler(req, res) {
-  // For security: only allow GET
+  // Set CORS headers FIRST - so they apply to ALL responses (including errors)
+  res.setHeader('Access-Control-Allow-Origin', '*');
+  res.setHeader('Access-Control-Allow-Methods', 'GET, OPTIONS');
+  res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
+
+  // Handle preflight OPTIONS request (some browsers send this)
+  if (req.method === 'OPTIONS') {
+    return res.status(200).end();
+  }
+
+  // For security: only allow GET (after OPTIONS)
   if (req.method !== 'GET') {
     return res.status(405).json({ error: 'Method Not Allowed' });
   }
 
-  // ────────────────────────────────────────────────
-  // HARDCODED KEY - REPLACE WITH YOUR FULL KEY
-  const apiKey = "d1d0fc87e3";
-  // ────────────────────────────────────────────────
-
-  if (!apiKey || apiKey === "d1d0fc87e3YOUR_FULL_KEY_HERE_PASTE_THE_COMPLETE_ONE") {
-    return res.status(500).json({ error: 'API key is still missing or placeholder - edit proxy.js' });
+  const apiKey = process.env.CSGOWIN_API_KEY;
+  if (!apiKey) {
+    return res.status(500).json({ error: 'Server configuration error: API key missing' });
   }
 
   try {
-    console.log('Using hardcoded API key (length:', apiKey.length, ')'); // debug log
-
     const response = await fetch('https://api.csgowin.com/api/leaderboard/yosoykush', {
       method: 'GET',
       headers: {
@@ -27,19 +30,14 @@ export default async function handler(req, res) {
 
     if (!response.ok) {
       const errorText = await response.text();
-      console.error('CSGOWIN upstream error:', response.status, errorText);
       throw new Error(`CSGOWIN API error: ${response.status} - ${errorText}`);
     }
 
     const data = await response.json();
-
-    res.setHeader('Access-Control-Allow-Origin', '*');
-    res.setHeader('Access-Control-Allow-Methods', 'GET');
     res.setHeader('Content-Type', 'application/json');
-
     return res.status(200).json(data);
   } catch (error) {
-    console.error('Proxy error:', error.message, error.stack);
+    console.error('Proxy error:', error);
     return res.status(500).json({ error: error.message });
   }
 }
