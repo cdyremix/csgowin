@@ -1,9 +1,14 @@
-// api/proxy.js  (or api/csgowin.js)
+// api/proxy.js
 export default async function handler(req, res) {
-  const apiKey = process.env.CSGOWIN_API_KEY;  // ← store securely in Vercel env vars
+  // For security: only allow GET
+  if (req.method !== 'GET') {
+    return res.status(405).json({ error: 'Method Not Allowed' });
+  }
+
+  const apiKey = process.env.CSGOWIN_API_KEY;
 
   if (!apiKey) {
-    return res.status(500).json({ error: 'API key not configured' });
+    return res.status(500).json({ error: 'Server configuration error: API key missing' });
   }
 
   try {
@@ -16,15 +21,20 @@ export default async function handler(req, res) {
     });
 
     if (!response.ok) {
-      throw new Error(`CSGOWIN API responded with ${response.status}`);
+      const errorText = await response.text();
+      throw new Error(`CSGOWIN API error: ${response.status} - ${errorText}`);
     }
 
     const data = await response.json();
-    res.setHeader('Access-Control-Allow-Origin', '*');  // or restrict to 'https://yosoykush.fun'
+
+    // Allow CORS from your site (or '*' for testing)
+    res.setHeader('Access-Control-Allow-Origin', '*');  // Change to 'https://yosoykush.fun' in production
+    res.setHeader('Access-Control-Allow-Methods', 'GET');
     res.setHeader('Content-Type', 'application/json');
-    res.status(200).json(data);
+
+    return res.status(200).json(data);
   } catch (error) {
-    console.error(error);
-    res.status(500).json({ error: error.message });
+    console.error('Proxy error:', error);
+    return res.status(500).json({ error: error.message });
   }
 }
