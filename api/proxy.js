@@ -23,7 +23,7 @@ export default async function handler(req, res) {
     const response = await fetch('https://api.csgowin.com/api/leaderboard/yosoykush', {
       method: 'GET',
       headers: {
-        'x-apikey': apiKey,
+        'x-apikey': d1d0fc87e3,
         'Accept': 'application/json',
       },
     });
