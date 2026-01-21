@@ -1,45 +1,61 @@
-// api/proxy.js - TEMPORARY: hardcoded API key for testing
+// api/proxy.js - CSGOWIN AFFILIATE LEADERBOARD PROXY (adapted from Upgrader style)
+// Hardcoded key for testing - replace with your full key
+const CSGOWIN_API = 'https://api.csgowin.com/api/leaderboard/yosoykush';
+const API_KEY = 'd1d0fc87e3'; // ← REPLACE WITH YOUR FULL KEY HERE (longer string)
+
 export default async function handler(req, res) {
-  // For security: only allow GET
+  // CORS Preflight (fixes OPTIONS blocked error in browser)
+  if (req.method === 'OPTIONS') {
+    res.setHeader('Access-Control-Allow-Origin', 'https://yosoykush.fun');
+    res.setHeader('Access-Control-Allow-Methods', 'GET, OPTIONS');
+    res.setHeader('Access-Control-Allow-Headers', 'Content-Type, User-Agent');
+    return res.status(204).end();
+  }
+
   if (req.method !== 'GET') {
-    return res.status(405).json({ error: 'Method Not Allowed' });
+    return res.status(405).json({ error: true, msg: 'GET only' });
   }
 
-  // ────────────────────────────────────────────────
-  // HARDCODED KEY - REPLACE WITH YOUR FULL KEY
-  const apiKey = "d1d0fc87e3";
-  // ────────────────────────────────────────────────
-
-  if (!apiKey || apiKey === "d1d0fc87e3") {
-    return res.status(500).json({ error: 'API key is still missing or placeholder - edit proxy.js' });
-  }
+  // CORS for all responses
+  res.setHeader('Access-Control-Allow-Origin', 'https://yosoykush.fun');
+  res.setHeader('Access-Control-Allow-Credentials', 'true');
+  res.setHeader('Cache-Control', 'no-store, max-age=0'); // Always fresh data
 
   try {
-    console.log('Using hardcoded API key (length:', apiKey.length, ')'); // debug log
+    console.log('CSGOWIN proxy request received - using key length:', API_KEY.length);
 
-    const response = await fetch('https://api.csgowin.com/api/leaderboard/yosoykush', {
+    const apiRes = await fetch(CSGOWIN_API, {
       method: 'GET',
       headers: {
-        'x-apikey': apiKey,
+        'x-apikey': API_KEY,
         'Accept': 'application/json',
-      },
+        'User-Agent': 'YosoyKush-Leaderboard/1.0'
+      }
     });
 
-    if (!response.ok) {
-      const errorText = await response.text();
-      console.error('CSGOWIN upstream error:', response.status, errorText);
-      throw new Error(`CSGOWIN API error: ${response.status} - ${errorText}`);
-    }
+    let data = await apiRes.json();
 
-    const data = await response.json();
-
-    res.setHeader('Access-Control-Allow-Origin', '*');
-    res.setHeader('Access-Control-Allow-Methods', 'GET');
+    // Forward exact response from CSGOWIN (including errors)
     res.setHeader('Content-Type', 'application/json');
 
+    if (!apiRes.ok || data.error) {
+      return res.status(apiRes.status || 500).json(data);
+    }
+
     return res.status(200).json(data);
-  } catch (error) {
-    console.error('Proxy error:', error.message, error.stack);
-    return res.status(500).json({ error: error.message });
+
+  } catch (err) {
+    console.error('Proxy Error:', err.message, err.stack);
+    return res.status(500).json({
+      error: true,
+      msg: 'Proxy failed - check Vercel logs or CSGOWIN status'
+    });
   }
 }
+
+// Vercel config (ensures body parsing if needed later, though not used here)
+export const config = {
+  api: {
+    bodyParser: true
+  }
+};
