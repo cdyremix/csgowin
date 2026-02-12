@@ -1,5 +1,5 @@
 // api/proxy.js - CSGOWIN Affiliate Referrals Proxy (fixed for /api/affiliate/external)
-const CSGOWIN_API_BASE = 'https://api.csgowin.com/api/leaderboard/yosoykush';
+const CSGOWIN_API_BASE = 'https://api.csgowin.com/api/affiliate/external';
 const API_KEY = 'd1d0fc87e3';  // Your key - move to env var in production
 const AFFILIATE_CODE = 'yosoykush';
 
