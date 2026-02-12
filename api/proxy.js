@@ -1,59 +1,77 @@
-// api/proxy.js - CSGOWIN AFFILIATE LEADERBOARD PROXY (adapted from Upgrader style)
-// Hardcoded key for testing - replace with your full key
-const CSGOWIN_API = 'https://api.csgowin.com/api/leaderboard/yosoykush';
-const API_KEY = 'd1d0fc87e3'; // ← REPLACE WITH YOUR FULL KEY HERE (longer string)
+// api/proxy.js - CSGOWIN Affiliate Referrals Proxy (updated for /api/affiliate/external)
+const CSGOWIN_API_BASE = 'https://api.csgowin.com/api/affiliate/external';
+const API_KEY = 'd1d0fc87e3';          // Your key (move to env var in production!)
+const AFFILIATE_CODE = 'yosoykush';
 
 export default async function handler(req, res) {
-  // CORS Preflight (fixes OPTIONS blocked error in browser)
+  // Handle CORS preflight
   if (req.method === 'OPTIONS') {
     res.setHeader('Access-Control-Allow-Origin', 'https://yosoykush.fun');
     res.setHeader('Access-Control-Allow-Methods', 'GET, OPTIONS');
-    res.setHeader('Access-Control-Allow-Headers', 'Content-Type, User-Agent');
+    res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
     return res.status(204).end();
   }
 
   if (req.method !== 'GET') {
-    return res.status(405).json({ error: true, msg: 'GET only' });
+    return res.status(405).json({ error: 'Method not allowed - use GET' });
   }
 
-  // CORS for all responses
+  // CORS & no-cache
   res.setHeader('Access-Control-Allow-Origin', 'https://yosoykush.fun');
-  res.setHeader('Access-Control-Allow-Credentials', 'true');
-  res.setHeader('Cache-Control', 'no-store, max-age=0'); // Always fresh data
+  res.setHeader('Cache-Control', 'no-store, max-age=0');
 
   try {
-    console.log('CSGOWIN proxy request received - using key length:', API_KEY.length);
+    const url = new URL(req.url, 'http://localhost');
+    // Use query params from frontend if provided, else fallback
+    let gt = url.searchParams.get('gt') || new Date('2026-02-01').getTime(); // Contest start ms
+    let lt = url.searchParams.get('lt') || Date.now();                      // Now
 
-    const apiRes = await fetch(CSGOWIN_API, {
+    const params = new URLSearchParams({
+      code: AFFILIATE_CODE,
+      gt: gt.toString(),
+      lt: lt.toString(),
+      filters: 'wager',    // As per your example
+      sort: 'desc',
+      take: '20',          // Get top 20 to be safe (frontend slices to 10)
+      skip: '0',
+      search: ''
+    });
+
+    const fullUrl = `${CSGOWIN_API_BASE}?${params.toString()}`;
+
+    console.log('CSGOWIN proxy fetching:', fullUrl);
+    console.log('Using API key length:', API_KEY.length);
+
+    const apiRes = await fetch(fullUrl, {
       method: 'GET',
       headers: {
         'x-apikey': API_KEY,
         'Accept': 'application/json',
-        'User-Agent': 'YosoyKush-Leaderboard/1.0'
+        'User-Agent': 'YosoyKush-Leaderboard-Proxy/1.0'
       }
     });
 
     let data = await apiRes.json();
 
-    // Forward exact response from CSGOWIN (including errors)
-    res.setHeader('Content-Type', 'application/json');
+    // Log sample for Vercel debugging
+    console.log('CSGOWIN upstream status:', apiRes.status);
+    console.log('CSGOWIN response sample:', JSON.stringify(data).slice(0, 500));
 
     if (!apiRes.ok || data.error) {
-      return res.status(apiRes.status || 500).json(data);
+      return res.status(apiRes.status || 500).json(data || { error: 'Upstream API error' });
     }
 
-    return res.status(200).json(data);
-
+    res.status(200).json(data);
   } catch (err) {
-    console.error('Proxy Error:', err.message, err.stack);
-    return res.status(500).json({
+    console.error('CSGOWIN proxy error:', err.message, err.stack);
+    res.status(500).json({
       error: true,
       msg: 'Proxy failed - check Vercel logs or CSGOWIN status'
     });
   }
 }
 
-// Vercel config (ensures body parsing if needed later, though not used here)
+// Vercel config
 export const config = {
   api: {
     bodyParser: true
